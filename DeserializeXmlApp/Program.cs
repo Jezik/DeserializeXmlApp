@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Xml;
+using System.Xml.Serialization;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,27 +9,30 @@ using System.Threading.Tasks;
 
 namespace DeserializeXmlApp
 {
+    
     class Program
-    {
+    {       
+        
         static void Main(string[] args)
         {
-            string[] filesArray = null;
-           
-            filesArray = GetXMLFiles(args[0], filesArray);
+            string[] filesArray = GetXMLFiles(args[0]);
+                        
+            FolderMain xData = DeserializeData(filesArray[0]);
+            List<Folder> folderList = xData.Folder;
 
-            foreach (string filename in filesArray)
+            foreach (var value in folderList)
             {
-                Console.WriteLine(filename);
+                Console.WriteLine(value.StrSecond.Operand);
             }
-
-            ReadXMLFile2(filesArray[0]);
+            
             Console.ReadKey();
         }
 
         // Get files from a directory and add them to a string array
-        private static string[] GetXMLFiles(string directoryPath, string[] filesArray)
+        private static string[] GetXMLFiles(string directoryPath)
         {
-            
+            string[] filesArray = null;
+
             try
             {
                 filesArray = Directory.GetFiles(directoryPath, "*.xml");
@@ -52,51 +56,21 @@ namespace DeserializeXmlApp
             {
                 Console.WriteLine(e.Message);
             }
-            
+
             return filesArray;
         }
 
-        // Read xml file and construct something useful
-        private static void ReadXMLFile(string filePath)
+        // Deserialize data from .xml file
+        private static FolderMain DeserializeData(string filePath)
         {
-            XmlDocument xmlDoc = new XmlDocument();
-            xmlDoc.Load(filePath);
+            XmlSerializer deserializer = new XmlSerializer(typeof(FolderMain));
 
-            XmlElement root = xmlDoc.DocumentElement;
-            foreach (XmlNode node in root)
-            {
-                foreach (XmlNode childnode in node)
-                {
-                    if (childnode.Name == "str" && childnode.Attributes.GetNamedItem("name").Value.Equals("operand"))
-                    {
-                        Console.WriteLine("Operand: {0}", childnode.Attributes.GetNamedItem("value").Value);
-                    }
-                    if (childnode.Name == "int")
-                    {
-                        Console.WriteLine("Mod: {0}", childnode.Attributes.GetNamedItem("value").Value);
-                    }
-                }
-            }
+            TextReader reader = new StreamReader(filePath);
+            object obj = deserializer.Deserialize(reader);
+            FolderMain xmlData = (FolderMain)obj;
+            reader.Close();
+
+            return xmlData;
         }
-
-        // Read xml and construct something useful II
-        private static void ReadXMLFile2(string filePath)
-        {
-            XmlDocument xmlDoc = new XmlDocument();
-            xmlDoc.Load(filePath);
-
-            XmlElement root = xmlDoc.DocumentElement;
-            XmlNodeList childOperands = root.SelectNodes("//folder/str[@name='operand']");
-            foreach (XmlNode operandnode in childOperands)
-            {
-                Console.WriteLine("Operand: {0}", operandnode.Attributes.GetNamedItem("value").Value);
-            }
-
-            XmlNodeList childMods = root.SelectNodes("//folder/int");
-            foreach (XmlNode modnode in childMods)
-            {
-                Console.WriteLine("Mod: {0}", modnode.Attributes.GetNamedItem("value").Value);
-            }
-        }       
     }
 }
