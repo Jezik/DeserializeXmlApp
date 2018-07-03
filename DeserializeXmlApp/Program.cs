@@ -16,14 +16,30 @@ namespace DeserializeXmlApp
         static void Main(string[] args)
         {
             string[] filesArray = GetXMLFiles(args[0]);
+            double result = 0.0;
                         
             FolderMain xData = DeserializeData(filesArray[0]);
             List<Folder> folderList = xData.Folder;
+            int[] modArray = new int[folderList.Count];
+
+            for (int i = 0; i < folderList.Count; i++)
+            {
+                modArray[i] = Int32.Parse(folderList[i].Mod.Value);
+            }
 
             foreach (var value in folderList)
             {
-                Console.WriteLine(value.StrSecond.Operand);
+                Operands op = value.StrSecond.Operand;
+                int mod = Int32.Parse(value.Mod.Value);
+                result = CalculateFileResult(result, mod, op);
             }
+
+            Console.WriteLine("Result is: {0}", result);
+
+            /*for (int i = 0; i < modArray.Length; i++)
+            {
+                result = CalculateFileResult(modArray[i], );
+            }*/
             
             Console.ReadKey();
         }
@@ -72,5 +88,28 @@ namespace DeserializeXmlApp
 
             return xmlData;
         }
+
+        // Calculate result for the current file
+        private static double CalculateFileResult (double x, int y, Operands op)
+        {
+            double res;
+
+            switch (op)
+            {
+                case Operands.add:
+                    return res = x + y;                    
+                case Operands.divide:
+                    return res = x / y;
+                case Operands.multiply:
+                    return res = x * y;
+                case Operands.subtract:
+                    return res = x - y;
+                default:
+                    Console.WriteLine("Wrong data!!!");
+                    return 0.0;
+            }
+        }
+
+        
     }
 }
