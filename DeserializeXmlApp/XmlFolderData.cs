@@ -13,7 +13,7 @@ namespace DeserializeXmlApp
         add,
         [XmlEnum("subtract")]
         subtract
-    };
+    }
 
     // Root <folder>
     [XmlRoot("folder")]

@@ -1,11 +1,13 @@
 ﻿using System;
 using System.IO;
 using System.Xml;
+using System.Xml.Schema;
 using System.Xml.Serialization;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace DeserializeXmlApp
 {
@@ -15,32 +17,63 @@ namespace DeserializeXmlApp
         
         static void Main(string[] args)
         {
-            string[] filesArray = GetXMLFiles(args[0]);
-            double result = 0.0;
-                        
-            FolderMain xData = DeserializeData(filesArray[0]);
-            List<Folder> folderList = xData.Folder;
-            int[] modArray = new int[folderList.Count];
+            int calculationNumFinal = 0;
+            string fileName = null;
+            Stopwatch stopwatch = new Stopwatch();
 
-            for (int i = 0; i < folderList.Count; i++)
+            stopwatch.Start();
+            string[] filesArray = GetXMLFiles(args[0]);            
+
+            // Read files from array and make calculations
+            foreach (string file in filesArray)
             {
-                modArray[i] = Int32.Parse(folderList[i].Mod.Value);
+                FolderMain xData = ValidateDeserializeData(file);
+                if (xData != null)
+                {
+                    List<Folder> folderList = xData.Folder;
+                    int calculationNum = 0;
+                    double result = 0.0;
+
+                    foreach (var value in folderList)
+                    {
+                        try
+                        {
+                            Operands op = value.StrSecond.Operand;
+                            int mod = Int32.Parse(value.Mod.Value);
+                            result = CalculateFileResult(result, mod, op);
+                            calculationNum++;
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.WriteLine(e.Message);
+                            continue;
+                        }
+                    }
+
+                    Console.WriteLine("File: {0}", file);
+                    Console.WriteLine("Result is: {0}", result);
+                    Console.WriteLine("Number of calculations: {0}", calculationNum);
+                    Console.WriteLine();
+
+                    if (calculationNum > calculationNumFinal)
+                    {
+                        calculationNumFinal = calculationNum;
+                        fileName = file;
+                    }
+                }
             }
 
-            foreach (var value in folderList)
+            // Print to console final result if any
+            if (fileName != null)
             {
-                Operands op = value.StrSecond.Operand;
-                int mod = Int32.Parse(value.Mod.Value);
-                result = CalculateFileResult(result, mod, op);
+                Console.WriteLine("====RESULT====");
+                Console.WriteLine("File with the biggest number of deserialized <calculation> tags: {0}", fileName);
             }
 
-            Console.WriteLine("Result is: {0}", result);
+            // Print to console elapsed time for application
+            stopwatch.Stop();
+            Console.WriteLine("Elapsed time is: {0} seconds", (stopwatch.ElapsedMilliseconds/1000.0).ToString());
 
-            /*for (int i = 0; i < modArray.Length; i++)
-            {
-                result = CalculateFileResult(modArray[i], );
-            }*/
-            
             Console.ReadKey();
         }
 
@@ -76,19 +109,6 @@ namespace DeserializeXmlApp
             return filesArray;
         }
 
-        // Deserialize data from .xml file
-        private static FolderMain DeserializeData(string filePath)
-        {
-            XmlSerializer deserializer = new XmlSerializer(typeof(FolderMain));
-
-            TextReader reader = new StreamReader(filePath);
-            object obj = deserializer.Deserialize(reader);
-            FolderMain xmlData = (FolderMain)obj;
-            reader.Close();
-
-            return xmlData;
-        }
-
         // Calculate result for the current file
         private static double CalculateFileResult (double x, int y, Operands op)
         {
@@ -110,6 +130,40 @@ namespace DeserializeXmlApp
             }
         }
 
-        
+        // Validation and deseralization
+        private static FolderMain ValidateDeserializeData(string filePath)
+        {
+            XmlSerializer deserializer = new XmlSerializer(typeof(FolderMain));
+            FolderMain xmlData = null;
+
+            XmlReaderSettings settings = new XmlReaderSettings();
+            settings.ValidationType = ValidationType.Schema;
+            settings.Schemas.Add(null, "XmlSchema.xsd");
+            settings.ValidationFlags |= XmlSchemaValidationFlags.ProcessInlineSchema;
+            settings.ValidationFlags |= XmlSchemaValidationFlags.ReportValidationWarnings;
+            settings.ValidationEventHandler += new ValidationEventHandler(ValidationCallback); 
+
+            XmlReader reader = XmlReader.Create(filePath, settings);
+            try
+            {
+                xmlData = (FolderMain)deserializer.Deserialize(reader);
+            }
+            catch (InvalidOperationException e)
+            {
+                Debug.WriteLine("Debug: " + e.Message);
+                Console.WriteLine("Wrong operation type is provided for file {0}. \n" +
+                    "Check operand attributes. Only \"add\", \"divide\", \"multiply\" and \"subtract\" operations are possible. \n", filePath);
+            }
+
+            void ValidationCallback(object sender, ValidationEventArgs e)
+            {
+                Console.Write(e.Severity + ": ");
+                Console.WriteLine(e.Message);
+                Console.WriteLine("File: {0}, Number of line: {1}, Number of position: {2}", filePath, e.Exception.LineNumber, e.Exception.LinePosition);
+                Console.WriteLine();
+            }
+
+            return xmlData;
+        }
     }
 }
