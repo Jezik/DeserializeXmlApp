@@ -4,10 +4,8 @@ using System.Xml;
 using System.Xml.Schema;
 using System.Xml.Serialization;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Threading;
 
 namespace DeserializeXmlApp
 {
@@ -20,49 +18,57 @@ namespace DeserializeXmlApp
             int calculationNumFinal = 0;
             string fileName = null;
             Stopwatch stopwatch = new Stopwatch();
+            string[] filesArray = null;
+            Thread[] threadArray = null;
+            List<Tuple<string, int>> tupleList = new List<Tuple<string, int>>();
+            Tuple<string, int> fileResultTuple = null;
 
             stopwatch.Start();
-            string[] filesArray = GetXMLFiles(args[0]);            
 
-            // Read files from array and make calculations
-            foreach (string file in filesArray)
+            if (args.Length > 0)
             {
-                FolderMain xData = ValidateDeserializeData(file);
-                if (xData != null)
+                filesArray = GetXMLFiles(args[0]);
+
+                // Read files from array and make calculations
+                if (filesArray != null)
                 {
-                    List<Folder> folderList = xData.Folder;
-                    int calculationNum = 0;
-                    double result = 0.0;
-
-                    foreach (var value in folderList)
+                    threadArray = new Thread[filesArray.Length];
+                    for (int i=0; i < threadArray.Length; i++)
                     {
-                        try
-                        {
-                            Operands op = value.StrSecond.Operand;
-                            int mod = Int32.Parse(value.Mod.Value);
-                            result = CalculateFileResult(result, mod, op);
-                            calculationNum++;
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.WriteLine(e.Message);
-                            continue;
-                        }
+                        int copyOfI = i;
+                        threadArray[copyOfI] = new Thread(() => { tupleList.Add(fileResultTuple = ExecuteFileOperations(filesArray[copyOfI])); });
+                        threadArray[copyOfI].Start();
                     }
+                }
+                else
+                {
+                    Console.WriteLine("There is no .xml files in the provided directory.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Usage: specify directory as a parameter.");
+            }            
 
-                    Console.WriteLine("File: {0}", file);
-                    Console.WriteLine("Result is: {0}", result);
-                    Console.WriteLine("Number of calculations: {0}", calculationNum);
-                    Console.WriteLine();
-
-                    if (calculationNum > calculationNumFinal)
-                    {
-                        calculationNumFinal = calculationNum;
-                        fileName = file;
-                    }
+            // Waiting for all the threads to finish their work and return result tuples
+            if (threadArray != null)
+            {
+                for (int j=0; j < threadArray.Length; j++ )
+                {
+                    threadArray[j].Join();
                 }
             }
 
+            // Looking for the best file ever
+            foreach (var tuple in tupleList)
+            {
+                if (tuple.Item2 > calculationNumFinal)
+                {
+                    calculationNumFinal = tuple.Item2;
+                    fileName = tuple.Item1;
+                }
+            }
+                      
             // Print to console final result if any
             if (fileName != null)
             {
@@ -76,6 +82,7 @@ namespace DeserializeXmlApp
 
             Console.ReadKey();
         }
+
 
         // Get files from a directory and add them to a string array
         private static string[] GetXMLFiles(string directoryPath)
@@ -109,26 +116,46 @@ namespace DeserializeXmlApp
             return filesArray;
         }
 
-        // Calculate result for the current file
-        private static double CalculateFileResult (double x, int y, Operands op)
-        {
-            double res;
 
-            switch (op)
+        // Executing operations against each file in a fileArray
+        private static Tuple<string, int> ExecuteFileOperations(string filePath)
+        {            
+            FolderMain xData = ValidateDeserializeData(filePath);
+            if (xData != null)
             {
-                case Operands.add:
-                    return res = x + y;                    
-                case Operands.divide:
-                    return res = x / y;
-                case Operands.multiply:
-                    return res = x * y;
-                case Operands.subtract:
-                    return res = x - y;
-                default:
-                    Console.WriteLine("Wrong data!!!");
-                    return 0.0;
+                List<Folder> folderList = xData.Folder;
+                int calculationNum = 0;
+                double result = 0.0;
+
+                foreach (var value in folderList)
+                {
+                    try
+                    {
+                        Operands op = value.StrSecond.Operand;
+                        int mod = Int32.Parse(value.Mod.Value);
+                        result = CalculateFileResult(result, mod, op);
+                        calculationNum++;
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.WriteLine(e.Message);
+                        continue;
+                    }
+                }
+
+                Console.WriteLine("File: {0}", filePath);
+                Console.WriteLine("Result is: {0}", result);
+                Console.WriteLine("Number of calculations: {0}", calculationNum);
+                Console.WriteLine();
+
+                var fileOutTuple = new Tuple<string, int>(filePath, calculationNum);
+
+                return fileOutTuple;
             }
+            else 
+                return null;
         }
+        
 
         // Validation and deseralization
         private static FolderMain ValidateDeserializeData(string filePath)
@@ -165,5 +192,28 @@ namespace DeserializeXmlApp
 
             return xmlData;
         }
+
+
+        // Calculate result for the current file
+        private static double CalculateFileResult(double x, int y, Operands op)
+        {
+            double res;
+
+            switch (op)
+            {
+                case Operands.add:
+                    return res = x + y;
+                case Operands.divide:
+                    return res = x / y;
+                case Operands.multiply:
+                    return res = x * y;
+                case Operands.subtract:
+                    return res = x - y;
+                default:
+                    Console.WriteLine("Wrong data!!!");
+                    return 0.0;
+            }
+        }
+
     }
 }
