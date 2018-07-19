@@ -62,10 +62,13 @@ namespace DeserializeXmlApp
             // Looking for the best file ever
             foreach (var tuple in tupleList)
             {
-                if (tuple.Item2 > calculationNumFinal)
+                if (tuple != null)
                 {
-                    calculationNumFinal = tuple.Item2;
-                    fileName = tuple.Item1;
+                    if (tuple.Item2 > calculationNumFinal)
+                    {
+                        calculationNumFinal = tuple.Item2;
+                        fileName = tuple.Item1;
+                    }
                 }
             }
                       
